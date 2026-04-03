@@ -1,4 +1,4 @@
-name: RPi4 Static Research Build
+name: RPi4 KonstaKANG Research Build
 on: [workflow_dispatch]
 
 jobs:
@@ -10,17 +10,29 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install Toolchain and Dependencies
+      - name: Install Toolchain
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm ccache
 
-      - name: Setup Compilation Cache
+      - name: Setup Ccache
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-ccache-
+          key: ccache-${{ github.sha }}
+          restore-keys: ccache-
+
+      - name: Apply Research Patch
+        run: |
+          # The 10-second freeze hook for ar.tvplayer.tv in mm/mmap.c
+          sed -i '/return addr;/i \
+          if ((prot & PROT_EXEC) && (flags & MAP_ANONYMOUS)) { \
+              if (strncmp(current->comm, "ar.tvplayer.tv", 14) == 0) { \
+                  printk(KERN_INFO "[TARGET_HIT] ar.tvplayer.tv created Anon-Exec at: 0x%lx\\n", addr); \
+                  set_current_state(TASK_INTERRUPTIBLE); \
+                  schedule_timeout(msecs_to_jiffies(10000)); \
+              } \
+          }' mm/mmap.c
 
       - name: Configure Kernel (Stability & Research)
         run: |
@@ -30,15 +42,16 @@ jobs:
           
           make O=build_dir bcm2711_defconfig
           
-          # --- 1. BOOT-LOOP PREVENTION (STABILITY OVER SECURITY) ---
+          # --- 1. BOOT-LOOP PREVENTION (KONSTA-SPECIFIC) ---
           ./scripts/config --file build_dir/.config --disable CONFIG_RANDOMIZE_BASE
           ./scripts/config --file build_dir/.config --disable CONFIG_STACKPROTECTOR
           ./scripts/config --file build_dir/.config --disable CONFIG_STACKPROTECTOR_STRONG
           ./scripts/config --file build_dir/.config --disable CONFIG_VMAP_STACK
           ./scripts/config --file build_dir/.config --enable CONFIG_RELOCATABLE
+          ./scripts/config --file build_dir/.config --disable CONFIG_INIT_STACK_ALL_ZERO
           ./scripts/config --file build_dir/.config --disable CONFIG_WERROR
 
-          # --- 2. FULL RESEARCH FLAG LIST ---
+          # --- 2. YOUR FULL RESEARCH FLAG LIST ---
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF
@@ -85,24 +98,24 @@ jobs:
 
           make O=build_dir olddefconfig
 
-      - name: Compile Uncompressed Kernel
+      - name: Build Uncompressed Image
         run: |
           export ARCH=arm64
           export CROSS_COMPILE="ccache aarch64-linux-gnu-"
-          # We build ONLY the raw Image to ensure no compression issues
+          # We generate Image, modules, and DTBs
           make O=build_dir -j$(nproc) Image modules dtbs
 
       - name: Prepare Package
         run: |
           mkdir -p install/boot/overlays
+          # Naming the output 'Image' to match your config.txt
+          cp build_dir/arch/arm64/boot/Image install/boot/Image
           cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
           cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
-          # Renaming the raw Image to kernel8.img immediately
-          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img
           tar -cvf research_build.tar -C install .
 
-      - name: Upload Results
-        uses: actions/artifact@v4
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: RPi4-Static-Research-Package
+          name: Konsta-Research-Package
           path: research_build.tar
