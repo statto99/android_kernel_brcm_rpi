@@ -1,4 +1,4 @@
-name: RPi4 Research Kernel (No-Patch)
+name: RPi4 Static Research Build
 on: [workflow_dispatch]
 
 jobs:
@@ -13,9 +13,16 @@ jobs:
       - name: Install Toolchain and Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm
+          sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm ccache
 
-      - name: Configure Kernel (Unabridged Flag List)
+      - name: Setup Compilation Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-ccache-
+
+      - name: Configure Kernel (Stability & Research)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
@@ -23,7 +30,15 @@ jobs:
           
           make O=build_dir bcm2711_defconfig
           
-          # --- YOUR FULL RESEARCH FLAG LIST ---
+          # --- 1. BOOT-LOOP PREVENTION (STABILITY OVER SECURITY) ---
+          ./scripts/config --file build_dir/.config --disable CONFIG_RANDOMIZE_BASE
+          ./scripts/config --file build_dir/.config --disable CONFIG_STACKPROTECTOR
+          ./scripts/config --file build_dir/.config --disable CONFIG_STACKPROTECTOR_STRONG
+          ./scripts/config --file build_dir/.config --disable CONFIG_VMAP_STACK
+          ./scripts/config --file build_dir/.config --enable CONFIG_RELOCATABLE
+          ./scripts/config --file build_dir/.config --disable CONFIG_WERROR
+
+          # --- 2. FULL RESEARCH FLAG LIST ---
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF
@@ -51,10 +66,9 @@ jobs:
           ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4 # The BTF Compatibility Fix
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_UNUSED_SYMBOLS
           ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
           ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
           ./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER
@@ -63,34 +77,32 @@ jobs:
           ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX
           ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
           ./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
-          ./scripts/config --file build_dir/.config --disable CONFIG_KSU
-          ./scripts/config --file build_dir/.config --disable CONFIG_WERROR
           ./scripts/config --file build_dir/.config --enable CONFIG_UHID
           ./scripts/config --file build_dir/.config --enable CONFIG_HID
           ./scripts/config --file build_dir/.config --enable CONFIG_HW_BREAKPOINT
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF_MODULES
+          ./scripts/config --file build_dir/.config --enable CONFIG_UNUSED_SYMBOLS
 
           make O=build_dir olddefconfig
 
-      - name: Compile
+      - name: Compile Uncompressed Kernel
         run: |
           export ARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          # Build both compressed and uncompressed for your flexibility
-          make O=build_dir -j3 Image Image.gz modules dtbs
+          export CROSS_COMPILE="ccache aarch64-linux-gnu-"
+          # We build ONLY the raw Image to ensure no compression issues
+          make O=build_dir -j$(nproc) Image modules dtbs
 
-      - name: Prepare Artifact Package
+      - name: Prepare Package
         run: |
           mkdir -p install/boot/overlays
           cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
           cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
-          # Providing both so you can choose which one to patch
-          cp build_dir/arch/arm64/boot/Image install/boot/kernel8-raw.img
-          cp build_dir/arch/arm64/boot/Image.gz install/boot/kernel8.img.gz
+          # Renaming the raw Image to kernel8.img immediately
+          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img
           tar -cvf research_build.tar -C install .
 
       - name: Upload Results
-        uses: actions/upload-artifact@v4
+        uses: actions/artifact@v4
         with:
-          name: RPi4-Research-Package
+          name: RPi4-Static-Research-Package
           path: research_build.tar
