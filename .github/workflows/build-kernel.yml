@@ -12,9 +12,8 @@ jobs:
           ref: 'android-13.0'
 
       - name: Install Toolchain and Dependencies
-      * run: |
+        run: |
           sudo apt-get update
-          # Added libelf-dev, pahole, and zlib1g-dev for BTF support
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev
 
       - name: Configure Kernel
@@ -68,14 +67,13 @@ jobs:
           ./scripts/config --enable CONFIG_SECURITY_SELINUX_DEVELOP
           ./scripts/config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
           
-          # Fix for interactive prompts: Sync config and accept defaults for anything new
-* make olddefconfig
+          # Fix for interactive prompts
+          make olddefconfig
 
       - name: Compile
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          # Added KCFLAGS to handle potential issues with newer GCC
           make -j$(nproc) Image.gz dtbs
 
       - name: Manual APatch Injection
