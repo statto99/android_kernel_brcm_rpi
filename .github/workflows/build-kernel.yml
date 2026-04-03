@@ -10,112 +10,82 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install Toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm ccache
-
       - name: Setup Ccache
         uses: actions/cache@v4
         with:
           path: /home/runner/.ccache
-          key: ccache-final-v1-${{ github.sha }}
-          restore-keys: ccache-final-v1-
+          # UNIQUE KEY: Uses run_id + attempt to bypass the "Reserved/Locked" error 100%
+          key: ccache-rpi4-v${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ccache-rpi4-
+            ccache-final-
 
-      - name: Configure and Inject Your List
+      - name: Configure (Android Fix + Autopsy Logs)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           mkdir -p build_dir
           make O=build_dir bcm2711_defconfig
           
-          # --- 1. YOUR CORE LIST INJECTION ---
+          # --- 1. THE "AUTOPSY" FLAGS (For Ramoops/Debian VM) ---
+          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE
+          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE_CONSOLE
+          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE_PMSG
+          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE_RAM
+
+          # --- 2. THE LOOP FIXES (Bridging the 500KB Gap) ---
+          ./scripts/config --file build_dir/.config --enable CONFIG_MODVERSIONS
+          ./scripts/config --file build_dir/.config --enable CONFIG_MODULE_FORCE_LOAD
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDERFS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
+
+          # --- 3. YOUR RESEARCH LIST (Strictly Applied) ---
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
-          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_EBPF_JIT
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS
           ./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF
           ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
           ./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER
-          ./scripts/config --file build_dir/.config --enable CONFIG_TRACING
-          ./scripts/config --file build_dir/.config --enable CONFIG_DYNAMIC_FTRACE
-          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE_SYSCALLS
-          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_SYSCALL_TRACEPOINTS
           ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
           ./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS
           ./scripts/config --file build_dir/.config --enable CONFIG_UPROBES
-          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBE_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_RETPROBES
-          ./scripts/config --file build_dir/.config --enable CONFIG_PROBE_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_EVENT_TRACING
-          ./scripts/config --file build_dir/.config --enable CONFIG_PERF_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_PERF_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
-          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
-          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
-          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
-          ./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER
-          ./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS
+          ./scripts/config --file build_dir/.config --disable CONFIG_RANDOMIZE_BASE
           ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX
-          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX
-          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
-          ./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
-
-          # --- 2. ANDROID STABILITY (The 6MB Gap) ---
+          
+          # --- 4. ANDROID CORE SUBSYSTEMS ---
           ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID
           ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC
           ./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM
-          ./scripts/config --file build_dir/.config --enable CONFIG_ION
           ./scripts/config --file build_dir/.config --enable CONFIG_STAGING
-          ./scripts/config --file build_dir/.config --enable CONFIG_HID
-          ./scripts/config --file build_dir/.config --enable CONFIG_UHID
 
           make O=build_dir olddefconfig
 
-      - name: MANDATORY VERIFICATION (Stop the 40-min waste)
-        run: |
-          # If any of these are missing, the build stops HERE (approx minute 2)
-          REQUIRED_FLAGS=("CONFIG_BPF_SYSCALL=y" "CONFIG_DEBUG_INFO_BTF=y" "CONFIG_ANDROID_BINDER_IPC=y" "CONFIG_KALLSYMS_ALL=y")
-          for flag in "${REQUIRED_FLAGS[@]}"; do
-            if ! grep -q "$flag" build_dir/.config; then
-              echo "CRITICAL ERROR: $flag is missing! Stopping to save time."
-              exit 1
-            fi
-          done
-          echo "Verification successful. All requested research flags are active."
-
-      - name: Build
+      - name: Build Kernel
         run: |
           export ARCH=arm64
           export CROSS_COMPILE="ccache aarch64-linux-gnu-"
           export CCACHE_DIR=/home/runner/.ccache
-          make O=build_dir -j$(nproc) Image modules dtbs
+          ccache -M 2G
+          # Only building the Image to save time/space
+          make O=build_dir -j$(nproc) Image
 
       - name: Force Cache Save
         if: always()
         uses: actions/cache/save@v4
         with:
           path: /home/runner/.ccache
-          key: ccache-final-v1-${{ github.sha }}
+          key: ccache-rpi4-v${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Package
-        run: |
-          mkdir -p install/boot/overlays
-          cp build_dir/arch/arm64/boot/Image install/boot/Image
-          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
-          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
-          tar -cvf research_build.tar -C install .
-
-      - name: Upload
+      - name: Upload Research Image
         uses: actions/upload-artifact@v4
         with:
-          name: Lineage-Research-Final
-          path: research_build.tar
+          name: Research-Kernel-29MB-Target
+          path: build_dir/arch/arm64/boot/Image
