@@ -11,10 +11,11 @@ jobs:
           repository: 'raspberry-vanilla/android_kernel_brcm_rpi'
           ref: 'android-13.0'
 
-      - name: Install Toolchain
-        run: |
+      - name: Install Toolchain and Dependencies
+* run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64
+          # Added libelf-dev, pahole, and zlib1g-dev for BTF support
+          sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev
 
       - name: Configure Kernel
         run: |
@@ -27,7 +28,7 @@ jobs:
           ./scripts/config --enable CONFIG_HAVE_HW_BREAKPOINT
           ./scripts/config --enable CONFIG_DEBUG_HW_BREAKPOINTS
 
-          # Your specific Debug, BPF, and Tracing flags
+          # Debug, BPF, and Tracing flags
           ./scripts/config --enable CONFIG_DEBUG_FS
           ./scripts/config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --enable CONFIG_BPF
@@ -66,11 +67,15 @@ jobs:
           ./scripts/config --disable CONFIG_STRICT_MODULE_RWX
           ./scripts/config --enable CONFIG_SECURITY_SELINUX_DEVELOP
           ./scripts/config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
+          
+          # Fix for interactive prompts: Sync config and accept defaults for anything new
+* make olddefconfig
 
       - name: Compile
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
+          # Added KCFLAGS to handle potential issues with newer GCC
           make -j$(nproc) Image.gz dtbs
 
       - name: Manual APatch Injection
