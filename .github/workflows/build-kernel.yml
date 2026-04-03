@@ -1,4 +1,4 @@
-name: RPi4 LineageOS Research Build
+name: RPi4 LineageOS Research Final
 on: [workflow_dispatch]
 
 jobs:
@@ -19,58 +19,92 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /home/runner/.ccache
-          key: ccache-lineage-v4-${{ github.sha }}
-          restore-keys: ccache-lineage-v4-
+          key: ccache-final-v1-${{ github.sha }}
+          restore-keys: ccache-final-v1-
 
-      - name: Configure (The "Size-Match" Build)
+      - name: Configure and Inject Your List
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           mkdir -p build_dir
           make O=build_dir bcm2711_defconfig
           
-          # --- 1. ENABLE ANDROID INFRASTRUCTURE ---
+          # --- 1. YOUR CORE LIST INJECTION ---
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_EBPF_JIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
+          ./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER
+          ./scripts/config --file build_dir/.config --enable CONFIG_TRACING
+          ./scripts/config --file build_dir/.config --enable CONFIG_DYNAMIC_FTRACE
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE_SYSCALLS
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_SYSCALL_TRACEPOINTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_RETPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_PROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_EVENT_TRACING
+          ./scripts/config --file build_dir/.config --enable CONFIG_PERF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_PERF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
+          ./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
+          ./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
+
+          # --- 2. ANDROID STABILITY (The 6MB Gap) ---
           ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID
-          ./scripts/config --file build_dir/.config --enable CONFIG_STAGING
           ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC
-          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDERFS
           ./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM
           ./scripts/config --file build_dir/.config --enable CONFIG_ION
-          
-          # --- 2. RESEARCH & HID FIXES ---
+          ./scripts/config --file build_dir/.config --enable CONFIG_STAGING
           ./scripts/config --file build_dir/.config --enable CONFIG_HID
           ./scripts/config --file build_dir/.config --enable CONFIG_UHID
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
-          
-          # This "fixes" the config by resolving dependencies
+
           make O=build_dir olddefconfig
 
-      - name: Pre-Flight Validation (Stops 40-min Waste)
+      - name: MANDATORY VERIFICATION (Stop the 40-min waste)
         run: |
-          echo "Checking for Binder IPC..."
-          if ! grep -q "CONFIG_ANDROID_BINDER_IPC=y" build_dir/.config; then
-            echo "CRITICAL ERROR: Binder is missing. Build would be too small. Killing job."
-            exit 1
-          fi
-          echo "Validation Passed. Starting build."
+          # If any of these are missing, the build stops HERE (approx minute 2)
+          REQUIRED_FLAGS=("CONFIG_BPF_SYSCALL=y" "CONFIG_DEBUG_INFO_BTF=y" "CONFIG_ANDROID_BINDER_IPC=y" "CONFIG_KALLSYMS_ALL=y")
+          for flag in "${REQUIRED_FLAGS[@]}"; do
+            if ! grep -q "$flag" build_dir/.config; then
+              echo "CRITICAL ERROR: $flag is missing! Stopping to save time."
+              exit 1
+            fi
+          done
+          echo "Verification successful. All requested research flags are active."
 
       - name: Build
         run: |
           export ARCH=arm64
           export CROSS_COMPILE="ccache aarch64-linux-gnu-"
           export CCACHE_DIR=/home/runner/.ccache
-          # Limit ccache size to stay within GH limits
-          ccache -M 2G
           make O=build_dir -j$(nproc) Image modules dtbs
 
-      - name: Force Cache Save (Even on Failure)
+      - name: Force Cache Save
         if: always()
         uses: actions/cache/save@v4
         with:
           path: /home/runner/.ccache
-          key: ccache-lineage-v4-${{ github.sha }}
+          key: ccache-final-v1-${{ github.sha }}
 
       - name: Package
         run: |
