@@ -19,10 +19,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-lineage-${{ github.sha }}
-          restore-keys: ccache-lineage-
+          key: ccache-lineage-v2-${{ github.sha }}
+          restore-keys: ccache-lineage-v2-
 
-      - name: Configure (LineageOS Optimized)
+      - name: Configure (Fixed HID & Research)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
@@ -36,14 +36,18 @@ jobs:
           ./scripts/config --file build_dir/.config --disable CONFIG_VMAP_STACK
           ./scripts/config --file build_dir/.config --enable CONFIG_RELOCATABLE
           
-          # --- 2. LINEAGEOS / ANDROID ESSENTIALS ---
+          # --- 2. HID FIX (Prevents Undefined Reference Error) ---
+          ./scripts/config --file build_dir/.config --enable CONFIG_HID
+          ./scripts/config --file build_dir/.config --enable CONFIG_UHID
+          ./scripts/config --file build_dir/.config --enable CONFIG_HID_GENERIC
+
+          # --- 3. LINEAGEOS / ANDROID ESSENTIALS ---
           ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_PARANOID_NETWORK
           ./scripts/config --file build_dir/.config --enable CONFIG_NET_FILTER
-          ./scripts/config --file build_dir/.config --enable CONFIG_NETFILTER_XT_MATCH_QTAGUID
           ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
           ./scripts/config --file build_dir/.config --disable CONFIG_WERROR
 
-          # --- 3. YOUR RESEARCH FLAGS (BPF/FTRACE/KPROBES) ---
+          # --- 4. YOUR RESEARCH FLAGS (BPF/FTRACE/KPROBES) ---
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
