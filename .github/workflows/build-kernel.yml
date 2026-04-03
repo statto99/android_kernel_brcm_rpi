@@ -1,91 +1,76 @@
-name: RPi4 LineageOS Research Final
-on: [workflow_dispatch]
+name: LineageOS 20 (Android 13) Research Build
+
+on:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
+      - name: Install Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu bc bison flex libssl-dev make libelf-dev pahole ccache
+
+      - uses: actions/checkout@v4
         with:
+          ref: android-13.0
           fetch-depth: 1
 
       - name: Setup Ccache
         uses: actions/cache@v4
         with:
           path: /home/runner/.ccache
-          # UNIQUE KEY: Uses run_id + attempt to bypass the "Reserved/Locked" error 100%
-          key: ccache-rpi4-v${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            ccache-rpi4-
-            ccache-final-
+          key: ccache-android13-${{ github.sha }}
+          restore-keys: ccache-android13-
 
-      - name: Configure (Android Fix + Autopsy Logs)
+      - name: Configure (The Android 13 Way)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           mkdir -p build_dir
+          
+          # 1. Start with the Pi4 base
           make O=build_dir bcm2711_defconfig
           
-          # --- 1. THE "AUTOPSY" FLAGS (For Ramoops/Debian VM) ---
-          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE
-          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE_CONSOLE
-          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE_PMSG
-          ./scripts/config --file build_dir/.config --enable CONFIG_PSTORE_RAM
+          # 2. MERGE Android 13 requirements (This fixes the 6MB gap)
+          # This script is inside the 'android-13.0' branch you are using
+          ./scripts/kconfig/merge_config.sh -O build_dir/ build_dir/.config \
+            kernel/configs/android-base.config \
+            kernel/configs/android-recommended.config
 
-          # --- 2. THE LOOP FIXES (Bridging the 500KB Gap) ---
-          ./scripts/config --file build_dir/.config --enable CONFIG_MODVERSIONS
-          ./scripts/config --file build_dir/.config --enable CONFIG_MODULE_FORCE_LOAD
-          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDERFS
-          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
-          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
-
-          # --- 3. YOUR RESEARCH LIST (Strictly Applied) ---
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF
+          # 3. INJECT YOUR RESEARCH LIST
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF
-          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
-          ./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER
-          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
-          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBES
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
           ./scripts/config --file build_dir/.config --disable CONFIG_RANDOMIZE_BASE
           ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX
+          ./scripts/config --file build_dir/.config --enable CONFIG_UHID
           
-          # --- 4. ANDROID CORE SUBSYSTEMS ---
-          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID
-          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC
-          ./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM
-          ./scripts/config --file build_dir/.config --enable CONFIG_STAGING
-
           make O=build_dir olddefconfig
 
-      - name: Build Kernel
+      - name: Build
         run: |
           export ARCH=arm64
           export CROSS_COMPILE="ccache aarch64-linux-gnu-"
           export CCACHE_DIR=/home/runner/.ccache
-          ccache -M 2G
-          # Only building the Image to save time/space
-          make O=build_dir -j$(nproc) Image
+          # Android 13 on RPi4 needs the raw 'Image'
+          make O=build_dir -j$(nproc) Image modules dtbs
 
-      - name: Force Cache Save
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: /home/runner/.ccache
-          key: ccache-rpi4-v${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Package for SD Card
+        run: |
+          mkdir -p install/boot/overlays
+          # Force rename to kernel8.img (Standard for Konsta/Lineage)
+          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img
+          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
+          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
+          tar -cvf lineage20_rpi4_kernel.tar -C install .
 
-      - name: Upload Research Image
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Research-Kernel-29MB-Target
-          path: build_dir/arch/arm64/boot/Image
+          name: LineageOS-13-Kernel
+          path: lineage20_rpi4_kernel.tar
