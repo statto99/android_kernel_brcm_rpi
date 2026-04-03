@@ -12,7 +12,7 @@ jobs:
           ref: 'android-13.0'
 
       - name: Install Toolchain and Dependencies
-* run: |
+      * run: |
           sudo apt-get update
           # Added libelf-dev, pahole, and zlib1g-dev for BTF support
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev
