@@ -30,83 +30,82 @@ jobs:
           make O=build_dir bcm2711_defconfig
           
           # --- 1. CRITICAL BOOT FIXES (SELinux & Security) ---
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_SECURITY [cite: 20]
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY
           ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_NETWORK
           ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX
           ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_BOOTPARAM
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP [cite: 19]
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
           ./scripts/config --file build_dir/.config --set-str CONFIG_LSM "selinux,yama,loadpin,safesetid,integrity"
           ./scripts/config --file build_dir/.config --enable CONFIG_AUDIT
           ./scripts/config --file build_dir/.config --enable CONFIG_NETFILTER
 
           # --- 2. YOUR CORE RESEARCH LIST ---
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS [cite: 14]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HAVE_EBPF_JIT [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF [cite: 15]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FTRACE [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_TRACING [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DYNAMIC_FTRACE [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FTRACE_SYSCALLS [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HAVE_SYSCALL_TRACEPOINTS [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KPROBES [cite: 16]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_UPROBES [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_UPROBE_EVENTS [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_RETPROBES [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_PROBE_EVENTS [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_EVENT_TRACING [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_PERF_EVENTS [cite: 17]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HAVE_PERF_EVENTS [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4 [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL [cite: 18]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG [cite: 19]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC [cite: 19]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER [cite: 19]
-          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS [cite: 19]
-          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX [cite: 19]
-          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX [cite: 19]
-          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT [cite: 20]
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_EBPF_JIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
+          ./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER
+          ./scripts/config --file build_dir/.config --enable CONFIG_TRACING
+          ./scripts/config --file build_dir/.config --enable CONFIG_DYNAMIC_FTRACE
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE_SYSCALLS
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_SYSCALL_TRACEPOINTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_RETPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_PROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_EVENT_TRACING
+          ./scripts/config --file build_dir/.config --enable CONFIG_PERF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_PERF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
+          ./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX
+          ./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
           
           # --- 3. ANDROID STABILITY ---
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ANDROID [cite: 20]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC [cite: 20]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM [cite: 20]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ION [cite: 20]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_STAGING [cite: 20]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HID [cite: 21]
-          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_UHID [cite: 21]
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC
+          ./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM
+          ./scripts/config --file build_dir/.config --enable CONFIG_ION
+          ./scripts/config --file build_dir/.config --enable CONFIG_STAGING
+          ./scripts/config --file build_dir/.config --enable CONFIG_HID
+          ./scripts/config --file build_dir/.config --enable CONFIG_UHID
           
-          [cite_start]make O=build_dir olddefconfig [cite: 21]
+          make O=build_dir olddefconfig
 
-      - [cite_start]name: MANDATORY VERIFICATION [cite: 22]
+      - name: MANDATORY VERIFICATION
         run: |
-          # Adding SELINUX to the verification list 
-          REQUIRED_FLAGS=("CONFIG_BPF_SYSCALL=y" "CONFIG_DEBUG_INFO_BTF=y" "CONFIG_ANDROID_BINDER_IPC=y" "CONFIG_SECURITY_SELINUX=y") 
-          for flag in "${REQUIRED_FLAGS[@]}"; do [cite: 22, 23]
-            if ! grep -q "$flag" build_dir/.config; then [cite: 24]
-              echo "CRITICAL ERROR: $flag is missing! Stopping to save time." [cite: 24]
-              exit 1 [cite: 25]
+          REQUIRED_FLAGS=("CONFIG_BPF_SYSCALL=y" "CONFIG_DEBUG_INFO_BTF=y" "CONFIG_ANDROID_BINDER_IPC=y" "CONFIG_SECURITY_SELINUX=y")
+          for flag in "${REQUIRED_FLAGS[@]}"; do
+            if ! grep -q "$flag" build_dir/.config; then
+              echo "CRITICAL ERROR: $flag is missing! Stopping to save time."
+              exit 1
             fi
           done
-          echo "Verification successful. SELinux and Research flags are active."
+          echo "Verification successful."
 
-      - [cite_start]name: Build [cite: 26]
+      - name: Build
         run: |
-          export ARCH=arm64 [cite: 27]
-          export CROSS_COMPILE="ccache aarch64-linux-gnu-" [cite: 27]
-          export CCACHE_DIR=/home/runner/.ccache [cite: 27]
-          make O=build_dir -j$(nproc) Image modules dtbs [cite: 27]
+          export ARCH=arm64
+          export CROSS_COMPILE="ccache aarch64-linux-gnu-"
+          export CCACHE_DIR=/home/runner/.ccache
+          make O=build_dir -j$(nproc) Image modules dtbs
 
       - name: Force Cache Save
         if: always()
@@ -115,17 +114,16 @@ jobs:
           path: /home/runner/.ccache
           key: ccache-final-v1-${{ github.sha }}
 
-      - [cite_start]name: Package [cite: 28]
+      - name: Package
         run: |
-          mkdir -p install/boot/overlays 
-          # Rename to kernel8.img for standard RPi4 bootloaders
-          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img 
-          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/ 
-          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true [cite: 29, 30]
-          tar -cvf research_build.tar -C install . [cite: 30]
+          mkdir -p install/boot/overlays
+          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img
+          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
+          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
+          tar -cvf research_build.tar -C install .
 
-      - [cite_start]name: Upload [cite: 31]
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          [cite_start]name: Lineage-Research-Final [cite: 31]
-          [cite_start]path: research_build.tar [cite: 31]
+          name: Lineage-Research-Final
+          path: research_build.tar
