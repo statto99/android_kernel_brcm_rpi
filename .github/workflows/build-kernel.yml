@@ -1,4 +1,4 @@
-name: RPi4 Research Kernel Build
+name: RPi4 Research Kernel (No-Patch)
 on: [workflow_dispatch]
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm
 
-      - name: Configure Kernel (Full Flag List)
+      - name: Configure Kernel (Unabridged Flag List)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
@@ -23,7 +23,7 @@ jobs:
           
           make O=build_dir bcm2711_defconfig
           
-          # --- MANDATORY RESEARCH FLAGS ---
+          # --- YOUR FULL RESEARCH FLAG LIST ---
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF
@@ -51,7 +51,7 @@ jobs:
           ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4 # The BTF Compatibility Fix
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
           ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
@@ -69,28 +69,23 @@ jobs:
           ./scripts/config --file build_dir/.config --enable CONFIG_HW_BREAKPOINT
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF_MODULES
 
-          # Apply defaults for any new dependencies
           make O=build_dir olddefconfig
 
       - name: Compile
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          make O=build_dir -j3 Image.gz modules dtbs
+          # Build both compressed and uncompressed for your flexibility
+          make O=build_dir -j3 Image Image.gz modules dtbs
 
-      - name: APatch Injection
-        run: |
-          wget https://github.com/bmax121/KernelPatch/releases/latest/download/kptools-linux -O kptools
-          wget https://github.com/bmax121/KernelPatch/releases/latest/download/kpimg-android -O kpimg
-          chmod +x kptools
-          ./kptools -p --image build_dir/arch/arm64/boot/Image.gz --skey "Sp680226" --kpimg kpimg --out build_dir/kernel8.img
-          
-      - name: Prepare Install Package
+      - name: Prepare Artifact Package
         run: |
           mkdir -p install/boot/overlays
           cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
           cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
-          cp build_dir/kernel8.img install/boot/
+          # Providing both so you can choose which one to patch
+          cp build_dir/arch/arm64/boot/Image install/boot/kernel8-raw.img
+          cp build_dir/arch/arm64/boot/Image.gz install/boot/kernel8.img.gz
           tar -cvf research_build.tar -C install .
 
       - name: Upload Results
