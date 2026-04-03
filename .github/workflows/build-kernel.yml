@@ -54,6 +54,7 @@ jobs:
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4 # The BTF Compatibility Fix
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_UNUSED_SYMBOLS
           ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
           ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
           ./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER
