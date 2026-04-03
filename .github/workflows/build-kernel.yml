@@ -18,59 +18,59 @@ jobs:
       - name: Setup Ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
-          key: ccache-lineage-v2-${{ github.sha }}
-          restore-keys: ccache-lineage-v2-
+          path: /home/runner/.ccache
+          key: ccache-lineage-v4-${{ github.sha }}
+          restore-keys: ccache-lineage-v4-
 
-      - name: Configure (Fixed HID & Research)
+      - name: Configure (The "Size-Match" Build)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           mkdir -p build_dir
           make O=build_dir bcm2711_defconfig
           
-          # --- 1. THE STABILITY FOUNDATION ---
-          ./scripts/config --file build_dir/.config --disable CONFIG_RANDOMIZE_BASE
-          ./scripts/config --file build_dir/.config --disable CONFIG_STACKPROTECTOR
-          ./scripts/config --file build_dir/.config --disable CONFIG_STACKPROTECTOR_STRONG
-          ./scripts/config --file build_dir/.config --disable CONFIG_VMAP_STACK
-          ./scripts/config --file build_dir/.config --enable CONFIG_RELOCATABLE
+          # --- 1. ENABLE ANDROID INFRASTRUCTURE ---
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID
+          ./scripts/config --file build_dir/.config --enable CONFIG_STAGING
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDERFS
+          ./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM
+          ./scripts/config --file build_dir/.config --enable CONFIG_ION
           
-          # --- 2. HID FIX (Prevents Undefined Reference Error) ---
+          # --- 2. RESEARCH & HID FIXES ---
           ./scripts/config --file build_dir/.config --enable CONFIG_HID
           ./scripts/config --file build_dir/.config --enable CONFIG_UHID
-          ./scripts/config --file build_dir/.config --enable CONFIG_HID_GENERIC
-
-          # --- 3. LINEAGEOS / ANDROID ESSENTIALS ---
-          ./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_PARANOID_NETWORK
-          ./scripts/config --file build_dir/.config --enable CONFIG_NET_FILTER
-          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
-          ./scripts/config --file build_dir/.config --disable CONFIG_WERROR
-
-          # --- 4. YOUR RESEARCH FLAGS (BPF/FTRACE/KPROBES) ---
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS
-          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
-          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
-          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBES
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS
-          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
-          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
-          ./scripts/config --file build_dir/.config --enable CONFIG_UNUSED_SYMBOLS
-
+          
+          # This "fixes" the config by resolving dependencies
           make O=build_dir olddefconfig
+
+      - name: Pre-Flight Validation (Stops 40-min Waste)
+        run: |
+          echo "Checking for Binder IPC..."
+          if ! grep -q "CONFIG_ANDROID_BINDER_IPC=y" build_dir/.config; then
+            echo "CRITICAL ERROR: Binder is missing. Build would be too small. Killing job."
+            exit 1
+          fi
+          echo "Validation Passed. Starting build."
 
       - name: Build
         run: |
           export ARCH=arm64
           export CROSS_COMPILE="ccache aarch64-linux-gnu-"
+          export CCACHE_DIR=/home/runner/.ccache
+          # Limit ccache size to stay within GH limits
+          ccache -M 2G
           make O=build_dir -j$(nproc) Image modules dtbs
+
+      - name: Force Cache Save (Even on Failure)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/.ccache
+          key: ccache-lineage-v4-${{ github.sha }}
 
       - name: Package
         run: |
@@ -83,5 +83,5 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Lineage-Research-Package
+          name: Lineage-Research-Final
           path: research_build.tar
