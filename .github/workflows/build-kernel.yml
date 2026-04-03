@@ -1,76 +1,131 @@
-name: LineageOS 20 (Android 13) Research Build
-
-on:
-  workflow_dispatch:
+name: RPi4 LineageOS Research Final
+on: [workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu bc bison flex libssl-dev make libelf-dev pahole ccache
-
-      - uses: actions/checkout@v4
-        with:
-          ref: android-13.0
-          fetch-depth: 1
+          sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm ccache
 
       - name: Setup Ccache
         uses: actions/cache@v4
         with:
           path: /home/runner/.ccache
-          key: ccache-android13-${{ github.sha }}
-          restore-keys: ccache-android13-
+          key: ccache-final-v1-${{ github.sha }}
+          restore-keys: ccache-final-v1-
 
-      - name: Configure (The Android 13 Way)
+      - name: Configure and Inject Your List
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           mkdir -p build_dir
-          
-          # 1. Start with the Pi4 base
           make O=build_dir bcm2711_defconfig
           
-          # 2. MERGE Android 13 requirements (This fixes the 6MB gap)
-          # This script is inside the 'android-13.0' branch you are using
-          ./scripts/kconfig/merge_config.sh -O build_dir/ build_dir/.config \
-            kernel/configs/android-base.config \
-            kernel/configs/android-recommended.config
+          # --- 1. CRITICAL BOOT FIXES (SELinux & Security) ---
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_SECURITY [cite: 20]
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_NETWORK
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_BOOTPARAM
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP [cite: 19]
+          ./scripts/config --file build_dir/.config --set-str CONFIG_LSM "selinux,yama,loadpin,safesetid,integrity"
+          ./scripts/config --file build_dir/.config --enable CONFIG_AUDIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_NETFILTER
 
-          # 3. INJECT YOUR RESEARCH LIST
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
-          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
-          ./scripts/config --file build_dir/.config --disable CONFIG_RANDOMIZE_BASE
-          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX
-          ./scripts/config --file build_dir/.config --enable CONFIG_UHID
+          # --- 2. YOUR CORE RESEARCH LIST ---
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS [cite: 14]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HAVE_EBPF_JIT [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF [cite: 15]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FTRACE [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_TRACING [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DYNAMIC_FTRACE [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FTRACE_SYSCALLS [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HAVE_SYSCALL_TRACEPOINTS [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KPROBES [cite: 16]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_UPROBES [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_UPROBE_EVENTS [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_RETPROBES [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_PROBE_EVENTS [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_EVENT_TRACING [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_PERF_EVENTS [cite: 17]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HAVE_PERF_EVENTS [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4 [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL [cite: 18]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG [cite: 19]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC [cite: 19]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER [cite: 19]
+          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS [cite: 19]
+          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX [cite: 19]
+          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX [cite: 19]
+          [cite_start]./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT [cite: 20]
           
-          make O=build_dir olddefconfig
+          # --- 3. ANDROID STABILITY ---
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ANDROID [cite: 20]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ANDROID_BINDER_IPC [cite: 20]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ASHMEM [cite: 20]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_ION [cite: 20]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_STAGING [cite: 20]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_HID [cite: 21]
+          [cite_start]./scripts/config --file build_dir/.config --enable CONFIG_UHID [cite: 21]
+          
+          [cite_start]make O=build_dir olddefconfig [cite: 21]
 
-      - name: Build
+      - [cite_start]name: MANDATORY VERIFICATION [cite: 22]
         run: |
-          export ARCH=arm64
-          export CROSS_COMPILE="ccache aarch64-linux-gnu-"
-          export CCACHE_DIR=/home/runner/.ccache
-          # Android 13 on RPi4 needs the raw 'Image'
-          make O=build_dir -j$(nproc) Image modules dtbs
+          # Adding SELINUX to the verification list 
+          REQUIRED_FLAGS=("CONFIG_BPF_SYSCALL=y" "CONFIG_DEBUG_INFO_BTF=y" "CONFIG_ANDROID_BINDER_IPC=y" "CONFIG_SECURITY_SELINUX=y") 
+          for flag in "${REQUIRED_FLAGS[@]}"; do [cite: 22, 23]
+            if ! grep -q "$flag" build_dir/.config; then [cite: 24]
+              echo "CRITICAL ERROR: $flag is missing! Stopping to save time." [cite: 24]
+              exit 1 [cite: 25]
+            fi
+          done
+          echo "Verification successful. SELinux and Research flags are active."
 
-      - name: Package for SD Card
+      - [cite_start]name: Build [cite: 26]
         run: |
-          mkdir -p install/boot/overlays
-          # Force rename to kernel8.img (Standard for Konsta/Lineage)
-          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img
-          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
-          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
-          tar -cvf lineage20_rpi4_kernel.tar -C install .
+          export ARCH=arm64 [cite: 27]
+          export CROSS_COMPILE="ccache aarch64-linux-gnu-" [cite: 27]
+          export CCACHE_DIR=/home/runner/.ccache [cite: 27]
+          make O=build_dir -j$(nproc) Image modules dtbs [cite: 27]
 
-      - name: Upload
+      - name: Force Cache Save
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/.ccache
+          key: ccache-final-v1-${{ github.sha }}
+
+      - [cite_start]name: Package [cite: 28]
+        run: |
+          mkdir -p install/boot/overlays 
+          # Rename to kernel8.img for standard RPi4 bootloaders
+          cp build_dir/arch/arm64/boot/Image install/boot/kernel8.img 
+          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/ 
+          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true [cite: 29, 30]
+          tar -cvf research_build.tar -C install . [cite: 30]
+
+      - [cite_start]name: Upload [cite: 31]
         uses: actions/upload-artifact@v4
         with:
-          name: LineageOS-13-Kernel
-          path: lineage20_rpi4_kernel.tar
+          [cite_start]name: Lineage-Research-Final [cite: 31]
+          [cite_start]path: research_build.tar [cite: 31]
