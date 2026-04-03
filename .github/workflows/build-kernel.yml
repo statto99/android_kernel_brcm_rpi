@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'raspberry-vanilla/android_kernel_brcm_rpi'
           ref: 'android-13.0'
@@ -90,11 +90,11 @@ jobs:
           wget https://github.com/bmax121/KernelPatch/releases/latest/download/kptools-linux -O kptools
           wget https://github.com/bmax121/KernelPatch/releases/latest/download/kpimg-android -O kpimg
           chmod +x kptools
-          ./kptools -p --image arch/arm64/boot/Image.gz --skey "password123" --kpimg kpimg --out arch/arm64/boot/Image.gz-patched
+          ./kptools -p --image arch/arm64/boot/Image.gz --skey "Sp680226" --kpimg kpimg --out arch/arm64/boot/Image.gz-patched
           mv arch/arm64/boot/Image.gz-patched arch/arm64/boot/Image.gz
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: RPi4-Research-Kernel
           path: |
