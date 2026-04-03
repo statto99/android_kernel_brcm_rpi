@@ -1,4 +1,4 @@
-name: Build RPi4 Research Kernel
+name: RPi4 Research Kernel Build
 on: [workflow_dispatch]
 
 jobs:
@@ -8,73 +8,91 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
         with:
-          repository: 'raspberry-vanilla/android_kernel_brcm_rpi'
-          ref: 'android-13.0'
+          fetch-depth: 1
 
       - name: Install Toolchain and Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm
 
-      - name: Configure Kernel
+      - name: Configure and Build
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          make bcm2711_defconfig
+          mkdir -p build_dir
           
-          # Fix for the HID Linker Error
-          ./scripts/config --enable CONFIG_UHID
-          ./scripts/config --enable CONFIG_HID
+          # 1. Generate base config for RPi4
+          make O=build_dir bcm2711_defconfig
           
-          # Hardware Breakpoints & Debugging
-          ./scripts/config --enable CONFIG_HW_BREAKPOINT
-          ./scripts/config --enable CONFIG_HAVE_HW_BREAKPOINT
-          ./scripts/config --enable CONFIG_DEBUG_HW_BREAKPOINTS
+          # 2. Apply EVERY flag from your list (minus Samsung/MSM)
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_SYSCALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_EBPF_JIT
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_JIT_ALWAYS_ON
+          ./scripts/config --file build_dir/.config --enable CONFIG_BPF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_CGROUP_BPF
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE
+          ./scripts/config --file build_dir/.config --enable CONFIG_FUNCTION_TRACER
+          ./scripts/config --file build_dir/.config --enable CONFIG_TRACING
+          ./scripts/config --file build_dir/.config --enable CONFIG_DYNAMIC_FTRACE
+          ./scripts/config --file build_dir/.config --enable CONFIG_FTRACE_SYSCALLS
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_SYSCALL_TRACEPOINTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_KPROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_UPROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_RETPROBES
+          ./scripts/config --file build_dir/.config --enable CONFIG_PROBE_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_EVENT_TRACING
+          ./scripts/config --file build_dir/.config --enable CONFIG_PERF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_HAVE_PERF_EVENTS
+          ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF5
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
+          ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
+          ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG_PROC
+          ./scripts/config --file build_dir/.config --enable CONFIG_FRAME_POINTER
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRIP_ASM_SYMS
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_KERNEL_RWX
+          ./scripts/config --file build_dir/.config --disable CONFIG_STRICT_MODULE_RWX
+          ./scripts/config --file build_dir/.config --enable CONFIG_SECURITY_SELINUX_DEVELOP
+          ./scripts/config --file build_dir/.config --disable CONFIG_SECURITY_PERF_EVENTS_RESTRICT
+          ./scripts/config --file build_dir/.config --disable CONFIG_KSU
+          ./scripts/config --file build_dir/.config --disable CONFIG_WERROR
+          ./scripts/config --file build_dir/.config --enable CONFIG_UHID
+          ./scripts/config --file build_dir/.config --enable CONFIG_HID
+          ./scripts/config --file build_dir/.config --enable CONFIG_HW_BREAKPOINT
 
-          # Debug, BPF, and Tracing flags
-          ./scripts/config --enable CONFIG_DEBUG_FS
-          ./scripts/config --enable CONFIG_DEBUG_KERNEL
-          ./scripts/config --enable CONFIG_BPF
-          ./scripts/config --enable CONFIG_BPF_SYSCALL
-          ./scripts/config --enable CONFIG_BPF_JIT
-          ./scripts/config --enable CONFIG_BPF_EVENTS
-          ./scripts/config --enable CONFIG_FTRACE
-          ./scripts/config --enable CONFIG_KPROBES
-          ./scripts/config --enable CONFIG_KPROBE_EVENTS
-          ./scripts/config --enable CONFIG_UPROBES
-          ./scripts/config --enable CONFIG_UPROBE_EVENTS
-          ./scripts/config --enable CONFIG_PERF_EVENTS
-          ./scripts/config --enable CONFIG_DEBUG_INFO
-          # Try to keep BTF, but if it fails again, we might have to --disable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --enable CONFIG_KALLSYMS
-          ./scripts/config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --enable CONFIG_IKCONFIG
-          ./scripts/config --enable CONFIG_IKCONFIG_PROC
-          ./scripts/config --disable CONFIG_STRICT_KERNEL_RWX
-          ./scripts/config --disable CONFIG_STRICT_MODULE_RWX
+          # 3. Finalize
+          make O=build_dir olddefconfig
           
-          make olddefconfig
+          # 4. Compile (BTF fallback included)
+          make O=build_dir -j3 Image.gz modules dtbs PAHOLE_FLAGS="--btf_gen_floats" || \
+          make O=build_dir -j3 Image.gz modules dtbs CONFIG_DEBUG_INFO_BTF=n
 
-      - name: Compile
-        run: |
-          export ARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          # Ignore BTF errors during link if pahole misbehaves
-          make -j$(nproc) Image.gz dtbs PAHOLE_FLAGS="--btf_gen_floats" || make -j$(nproc) Image.gz dtbs CONFIG_DEBUG_INFO_BTF=n
-
-      - name: Manual APatch Injection
+      - name: APatch Injection
         run: |
           wget https://github.com/bmax121/KernelPatch/releases/latest/download/kptools-linux -O kptools
           wget https://github.com/bmax121/KernelPatch/releases/latest/download/kpimg-android -O kpimg
           chmod +x kptools
-          ./kptools -p --image arch/arm64/boot/Image.gz --skey "Sp680226" --kpimg kpimg --out arch/arm64/boot/Image.gz-patched
-          mv arch/arm64/boot/Image.gz-patched arch/arm64/boot/Image.gz
+          ./kptools -p --image build_dir/arch/arm64/boot/Image.gz --skey "Sp680226" --kpimg kpimg --out build_dir/kernel8.img
+          
+      - name: Prepare Install Package
+        run: |
+          mkdir -p install/boot/overlays
+          cp build_dir/arch/arm64/boot/dts/broadcom/*.dtb install/boot/
+          cp build_dir/arch/arm64/boot/dts/overlays/*.dtbo install/boot/overlays/ || true
+          cp build_dir/kernel8.img install/boot/
+          tar -cvf research_build.tar -C install .
 
-      - name: Upload Artifacts
+      - name: Upload Results
         uses: actions/upload-artifact@v4
         with:
-          name: RPi4-Research-Kernel
-          path: |
-            arch/arm64/boot/Image.gz
-            arch/arm64/boot/dts/broadcom/*.dtb
+          name: RPi4-Research-Package
+          path: research_build.tar
