@@ -15,16 +15,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64 libelf-dev pahole zlib1g-dev llvm
 
-      - name: Configure and Build
+      - name: Configure Kernel (Full Flag List)
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           mkdir -p build_dir
           
-          # 1. Generate base config for RPi4
           make O=build_dir bcm2711_defconfig
           
-          # 2. Apply EVERY flag from your list (minus Samsung/MSM)
+          # --- MANDATORY RESEARCH FLAGS ---
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_FS
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_KERNEL
           ./scripts/config --file build_dir/.config --enable CONFIG_BPF
@@ -52,7 +51,7 @@ jobs:
           ./scripts/config --file build_dir/.config --enable CONFIG_ANON_INODES
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO
           ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF
-          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF5
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_DWARF4
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS
           ./scripts/config --file build_dir/.config --enable CONFIG_KALLSYMS_ALL
           ./scripts/config --file build_dir/.config --enable CONFIG_IKCONFIG
@@ -68,13 +67,16 @@ jobs:
           ./scripts/config --file build_dir/.config --enable CONFIG_UHID
           ./scripts/config --file build_dir/.config --enable CONFIG_HID
           ./scripts/config --file build_dir/.config --enable CONFIG_HW_BREAKPOINT
+          ./scripts/config --file build_dir/.config --enable CONFIG_DEBUG_INFO_BTF_MODULES
 
-          # 3. Finalize
+          # Apply defaults for any new dependencies
           make O=build_dir olddefconfig
-          
-          # 4. Compile (BTF fallback included)
-          make O=build_dir -j3 Image.gz modules dtbs PAHOLE_FLAGS="--btf_gen_floats" || \
-          make O=build_dir -j3 Image.gz modules dtbs CONFIG_DEBUG_INFO_BTF=n
+
+      - name: Compile
+        run: |
+          export ARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make O=build_dir -j3 Image.gz modules dtbs
 
       - name: APatch Injection
         run: |
