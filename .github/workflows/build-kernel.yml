@@ -16,18 +16,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev make crossbuild-essential-arm64
 
-      - name: Apply Hard-Wired Stealth Patch
-        run: |
-          # Injects the logger and the 10-second freeze for ar.tvplayer.tv
-          sed -i '/return addr;/i \
-          if ((prot & PROT_EXEC) && (flags & MAP_ANONYMOUS)) { \
-              if (strncmp(current->comm, "ar.tvplayer.tv", 14) == 0) { \
-                  printk(KERN_INFO "[TARGET_HIT] ar.tvplayer.tv created Anon-Exec at: 0x%lx\\n", addr); \
-                  set_current_state(TASK_INTERRUPTIBLE); \
-                  schedule_timeout(msecs_to_jiffies(10000)); \
-              } \
-          }' mm/mmap.c
-
       - name: Configure Kernel
         run: |
           export ARCH=arm64
